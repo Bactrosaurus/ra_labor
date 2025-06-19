@@ -103,6 +103,7 @@ architecture structure of riubs_only_RISC_V is
     -- Memory Cache Output
     signal s_memory_cache_out       : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_memory_cache_debug_out : memory :=(others => (others => '0'));
+    signal s_mem_wb_memory_cache_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
 
     -- Branch Signals
     signal s_branch_target     : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
@@ -394,7 +395,7 @@ begin
             pi_clk => not pi_clk,       -- uses inverted clock signal               
             pi_rst => pi_rst,               
             pi_ctrmem => s_cw_reg2_out.MEM_CTR, -- data length to read/write including extending behavior
-            pi_write => s_cw_reg3_out.MEM_WRITE, -- whether to write
+            pi_write => s_cw_reg2_out.MEM_WRITE, -- whether to write
             pi_read => s_cw_reg2_out.MEM_READ, -- whether to read
             pi_writedata => s_ex_mem_op2_out,   -- the data to write
             po_readdata => s_memory_cache_out,  -- the read data
@@ -419,6 +420,7 @@ begin
             po_data => s_d_reg3_out
         );
 
+    
     -- ========================================================================
     -- WB STAGE (Write Back)
     -- ========================================================================
@@ -431,13 +433,22 @@ begin
             po_data => s_mem_wb_res_out
         );
 
+    mem_wb_memory_cache: entity work.PipelineRegister
+        generic map (g_register_width => WORD_WIDTH)
+        port map (
+            pi_clk  => pi_clk,
+            pi_rst  => pi_rst,
+            pi_data => s_memory_cache_out,
+            po_data => s_mem_wb_memory_cache_out
+        );
+
     wb_mux: entity work.four_to_one_mux
         generic map (dataWidth => WORD_WIDTH)
         port map (
             pi_1   => s_mem_wb_res_out,     -- for arithmetic instructions etc.
             pi_2   => s_se_reg3_out,        -- for U-type instructions
             pi_3   => s_pc_reg4_out,        -- for JUMPs and BRANCHes
-            pi_4   => s_memory_cache_out,   -- for LOAD instructions
+            pi_4   => s_mem_wb_memory_cache_out,   -- for LOAD instructions
             pi_sel => s_cw_reg3_out.WB_SEL,
             po_res => s_wb_mux_out
         );
