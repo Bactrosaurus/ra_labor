@@ -70,7 +70,29 @@ PACKAGE BODY util_asm_package IS
       -- Immediate-Wert als 12-bit 2's Komplement
       imm := STD_LOGIC_VECTOR(to_signed(((token3)), 12));
       machine_word := imm & rs1 & funct3 & rd & opcode;
+    -- ==============================================================
+    -- ADDED BY DANIEL S because otherwise it doesnt work lol
+    -- ==============================================================
+      ELSIF instr = "SLT" THEN
+      opcode := R_INS_OP; -- R-type
+      funct3 := "010";
+      funct7 := "0000000";
+      rd := STD_LOGIC_VECTOR(to_unsigned(token1, 5));
+      rs1 := STD_LOGIC_VECTOR(to_unsigned(token2, 5));
+      rs2 := STD_LOGIC_VECTOR(to_unsigned(token3, 5));
+      machine_word := funct7 & rs2 & rs1 & funct3 & rd & opcode;
 
+      ELSIF instr = "SLTU" THEN
+      opcode := R_INS_OP; -- R-type
+      funct3 := "011";
+      funct7 := "0000000";
+      rd := STD_LOGIC_VECTOR(to_unsigned(token1, 5));
+      rs1 := STD_LOGIC_VECTOR(to_unsigned(token2, 5));
+      rs2 := STD_LOGIC_VECTOR(to_unsigned(token3, 5));
+      machine_word := funct7 & rs2 & rs1 & funct3 & rd & opcode;
+    -- ==============================================================
+    -- ADDED BY DANIEL S because otherwise it doesnt work lol
+    -- ==============================================================
     ELSIF instr = "XORI" THEN
       opcode := I_INS_OP; -- I-type
       funct3 := "100";
