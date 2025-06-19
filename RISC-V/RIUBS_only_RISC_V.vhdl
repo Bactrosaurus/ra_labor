@@ -394,8 +394,8 @@ begin
             pi_clk => not pi_clk,       -- uses inverted clock signal               
             pi_rst => pi_rst,               
             pi_ctrmem => s_cw_reg2_out.MEM_CTR, -- data length to read/write including extending behavior
-            pi_write => s_cw_reg2_out.MEM_READ, -- whether to write
-            pi_read => s_cw_reg2_out.MEM_WRITE, -- whether to read
+            pi_write => s_cw_reg3_out.MEM_WRITE, -- whether to write
+            pi_read => s_cw_reg2_out.MEM_READ, -- whether to read
             pi_writedata => s_ex_mem_op2_out,   -- the data to write
             po_readdata => s_memory_cache_out,  -- the read data
             po_debugdatamemory => s_memory_cache_debug_out -- debug output
