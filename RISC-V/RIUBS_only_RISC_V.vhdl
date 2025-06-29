@@ -57,10 +57,11 @@ architecture structure of riubs_only_RISC_V is
     signal s_cache_instruction        : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
 
     -- Control Word Pipeline (ID → EX → MEM → WB)
-    signal s_decoder_out : controlword := control_word_init;
-    signal s_cw_reg1_out : controlword := control_word_init;
-    signal s_cw_reg2_out : controlword := control_word_init;
-    signal s_cw_reg3_out : controlword := control_word_init;
+    signal s_decoder_out : controlword                                 := control_word_init;
+    signal s_opcode      : std_logic_vector(OPCODE_WIDTH - 1 downto 0) := (others => '0');
+    signal s_cw_reg1_out : controlword                                 := control_word_init;
+    signal s_cw_reg2_out : controlword                                 := control_word_init;
+    signal s_cw_reg3_out : controlword                                 := control_word_init;
 
     -- Destination Register Pipeline (ID → EX → MEM → WB)
     signal s_d_reg1_out : std_logic_vector(4 downto 0) := (others => '0');
@@ -204,15 +205,14 @@ begin
             po_jumpImm      => s_jumpImm_out
         );
 
+    s_opcode <= s_instruction_register_out(6 downto 0);
+
     -- Immediate Selection
-    with s_instruction_register_out(6 downto 0) select
-        s_signextension_out <= s_immediateImm_out      when I_INS_OP,
-                               s_unsignedImm_out       when LUI_INS_OP,
-                               s_unsignedImm_out       when AUIPC_INS_OP,
-                               s_branchImm_out         when B_INS_OP,
-                               s_jumpImm_out           when JAL_INS_OP,
-                               s_immediateImm_out      when JALR_INS_OP,
-                                       (others => '0') when others;
+    s_signextension_out <= s_immediateImm_out when s_opcode = I_INS_OP or s_opcode = JALR_INS_OP else
+                           s_unsignedImm_out  when s_opcode = LUI_INS_OP or s_opcode = AUIPC_INS_OP else
+                           s_jumpImm_out      when s_opcode = JAL_INS_OP else
+                           s_branchImm_out    when s_opcode = B_INS_OP else
+                           s_storeImm_out     when s_opcode = S_INS_OP;
 
     -- Register File
     register_file: entity work.register_file
