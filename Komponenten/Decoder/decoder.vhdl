@@ -47,7 +47,7 @@ begin
                 v_insFormat := iFormat;
             when B_INS_OP =>
                 v_insFormat := bFormat;
-            when L_INS_OP => 
+            when L_INS_OP =>
                 v_insFormat := iFormat;
             when S_INS_OP =>
                 v_insFormat := sFormat;
@@ -71,11 +71,11 @@ begin
                     v_ctrl_word.PC_SEL := '1';
                     v_ctrl_word.WB_SEL := "10";
                 elsif pi_instruction(6 downto 0) = L_INS_OP then
-                    v_ctrl_word.ALU_OP := ADD_ALU_OP;
+                    -- Load instructions
                     v_ctrl_word.MEM_READ := '1';
                     v_ctrl_word.WB_SEL := "11";
                     v_ctrl_word.MEM_CTR := pi_instruction(14 downto 12);
-                else    
+                else
                     -- check for SRAI and SRLI instruction where bits 31-25 mimic funct7 (special format)
                     if pi_instruction(14 downto 12) = SRL_ALU_OP(2 downto 0) then
                         v_ctrl_word.ALU_OP(3) := pi_instruction(30);
@@ -128,8 +128,8 @@ begin
                     v_ctrl_word.ALU_OP := SLTU_ALU_OP;
                 end if;
             when sFormat =>
-                v_ctrl_word.ALU_OP := ADD_ALU_OP;
                 v_ctrl_word.I_IMM_SEL := '1';
+                v_ctrl_word.ALU_OP := ADD_ALU_OP;
                 v_ctrl_word.MEM_WRITE := '1';
                 v_ctrl_word.MEM_CTR := pi_instruction(14 downto 12);
             when others =>

@@ -45,13 +45,13 @@ ghdl -a --std=08 ../../Komponenten/Memory/data_memory.vhdl
 ghdl -a --std=08 ../../RISC-V/RIUBS_only_RISC_V.vhdl
 
 # compile testbench
-ghdl -a --std=08 ../../Testbenches/RISC-V/riubs_only_RISC_V_tb.vhdl
+ghdl -a --std=08 ../../Testbenches/RISC-V/riubs_only_RISC_V_tb3.vhdl
 
 # create testbench entity
-ghdl -e --std=08 riubs_only_RISC_V_tb
+ghdl -e --std=08 riubs_only_RISC_V_tb3
 
 # start simulation and create vcd-file
-ghdl -r --std=08 riubs_only_RISC_V_tb --wave=riubs_riscv_debug.ghw
+ghdl -r --std=08 riubs_only_RISC_V_tb3 --wave=riubs_riscv_debug3.ghw
 
 # launch gtkwave
-gtkwave riubs_riscv_debug.ghw
+gtkwave riubs_riscv_debug3.ghw

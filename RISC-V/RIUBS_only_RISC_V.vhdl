@@ -1,5 +1,5 @@
 -- ========================================================================
--- Laboratory RA solutions/versuch7
+-- Laboratory RA solutions/versuch8
 -- Sommersemester 25
 -- Group Details
 -- Lab Date:
@@ -18,17 +18,17 @@ library ieee;
     use work.constant_package.all;
     use work.types.all;
 
-entity riubs_only_RISC_V is
+entity riubs_bp_lu_only_RISC_V is
     port (
-        pi_rst              : in  std_logic;
-        pi_clk              : in  std_logic;
-        pi_instruction      : in  memory         := (others => (others => '0'));
-        po_registersOut     : out registermemory := (others => (others => '0'));
-        po_debugdatamemory  : out memory := (others => (others => '0'))
+        pi_rst             : in  std_logic;
+        pi_clk             : in  std_logic;
+        pi_instruction     : in  memory         := (others => (others => '0'));
+        po_registersOut    : out registermemory := (others => (others => '0'));
+        po_debugdatamemory : out memory         := (others => (others => '0'))
     );
 end entity;
 
-architecture structure of riubs_only_RISC_V is
+architecture structure of riubs_bp_lu_only_RISC_V is
     -- ========================================================================
     -- CONSTANTS
     -- ========================================================================
@@ -40,6 +40,7 @@ architecture structure of riubs_only_RISC_V is
     -- ========================================================================
 
     -- Program Counter Signals
+    signal s_pc_adder_incr   : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_pc_incremented  : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_pc_register_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_jmp_pc_out      : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
@@ -74,13 +75,17 @@ architecture structure of riubs_only_RISC_V is
     -- ALU Pipeline Signals
     signal s_ex_op_1_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_ex_op_2_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
+    signal s_ex_op_2_mem : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_alu_op1     : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_alu_op2     : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_alu_out     : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_alu_zero    : std_logic                                 := '0';
 
-    -- ALU Operand Pipeline
-    signal s_ex_mem_op2_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
+    -- Operand Forwarding
+    signal s_byp_op1_mux_out, s_byp_op2_mux_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
+    signal s_rs1_AdrID, s_rs2_AdrID             : std_logic_vector(4 downto 0) := (others => '0');
+    signal s_byp_rs1_mem, s_byp_rs2_mem         : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
+    signal s_byp_rs1_sel, s_byp_rs2_sel         : std_logic_vector(1 downto 0) := (others => '0');
 
     -- Result Pipeline (EX → MEM → WB)
     signal s_ex_mem_res_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
@@ -100,11 +105,6 @@ architecture structure of riubs_only_RISC_V is
     signal s_se_reg2_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_se_reg3_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
 
-    -- Memory Cache Output
-    signal s_memory_cache_out       : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
-    signal s_memory_cache_debug_out : memory :=(others => (others => '0'));
-    signal s_mem_wb_memory_cache_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
-
     -- Branch Signals
     signal s_branch_target     : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
     signal s_branch_target_mem : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
@@ -113,18 +113,28 @@ architecture structure of riubs_only_RISC_V is
 
     -- Control Signals
     signal s_is_jump    : std_logic                                 := '0';
+    signal s_flush      : std_logic                                 := '0';
     signal s_wb_mux_out : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
+    signal s_stall      : std_logic                                 := '0';
 
+    signal s_mem_out    : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
+    signal s_mem_out_wb : std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0');
 begin
     -- ========================================================================
     -- IF STAGE (Instruction Fetch)
     -- ========================================================================
 
     -- Program Counter Logic
+        
+        -- Stall Logic for PC Adder, stop counting during Stall
+        with s_stall select s_pc_adder_incr <=    ADD_FOUR_TO_ADDRESS when '0',
+                                                (others => '0') when '1',
+                                                ADD_FOUR_TO_ADDRESS when others;
+
     pc_adder: entity work.my_gen_full_adder
         generic map (g_data_width => WORD_WIDTH)
         port map (
-            pi_a     => ADD_FOUR_TO_ADDRESS,
+            pi_a     => s_pc_adder_incr,
             pi_b     => s_pc_register_out,
             pi_carry => '0',
             po_sum   => s_pc_incremented,
@@ -180,7 +190,7 @@ begin
         generic map (g_register_width => WORD_WIDTH)
         port map (
             pi_clk  => pi_clk,
-            pi_rst  => pi_rst or s_b_sel_mem or s_is_jump,
+            pi_rst  => s_flush,
             pi_data => s_cache_instruction,
             po_data => s_instruction_register_out
         );
@@ -202,16 +212,15 @@ begin
         port map (
             pi_instr        => s_instruction_register_out,
             po_immediateImm => s_immediateImm_out,
-            po_storeImm     => s_storeImm_out,
             po_unsignedImm  => s_unsignedImm_out,
             po_branchImm    => s_branchImm_out,
+            po_storeImm     => s_storeImm_out,
             po_jumpImm      => s_jumpImm_out
         );
 
     -- Immediate Selection
     with s_instruction_register_out(6 downto 0) select
         s_signextension_out <= s_immediateImm_out      when I_INS_OP,
-                               s_storeImm_out          when S_INS_OP,
                                s_unsignedImm_out       when LUI_INS_OP,
                                s_unsignedImm_out       when AUIPC_INS_OP,
                                s_branchImm_out         when B_INS_OP,
@@ -238,7 +247,7 @@ begin
     cw_reg1: entity work.controlwordregister
         port map (
             pi_clk         => pi_clk,
-            pi_rst         => pi_rst or s_b_sel_mem or s_is_jump,
+            pi_rst         => s_flush,
             pi_controlWord => s_decoder_out,
             po_controlWord => s_cw_reg1_out
         );
@@ -247,7 +256,7 @@ begin
         generic map (g_register_width => REG_ADR_WIDTH)
         port map (
             pi_clk  => pi_clk,
-            pi_rst  => pi_rst or s_b_sel_mem or s_is_jump,
+            pi_rst  => s_flush,
             pi_data => s_instruction_register_out(11 downto 7),
             po_data => s_d_reg1_out
         );
@@ -256,8 +265,8 @@ begin
         generic map (g_register_width => WORD_WIDTH)
         port map (
             pi_clk  => pi_clk,
-            pi_rst  => pi_rst or s_b_sel_mem or s_is_jump,
-            pi_data => s_register_file_out1,
+            pi_rst  => s_flush,
+            pi_data => s_byp_op1_mux_out,
             po_data => s_ex_op_1_out
         );
 
@@ -265,8 +274,8 @@ begin
         generic map (g_register_width => WORD_WIDTH)
         port map (
             pi_clk  => pi_clk,
-            pi_rst  => pi_rst or s_b_sel_mem or s_is_jump,
-            pi_data => s_register_file_out2,
+            pi_rst  => s_flush,
+            pi_data => s_byp_op2_mux_out,
             po_data => s_ex_op_2_out
         );
 
@@ -274,10 +283,53 @@ begin
         generic map (g_register_width => WORD_WIDTH)
         port map (
             pi_clk  => pi_clk,
-            pi_rst  => pi_rst or s_b_sel_mem or s_is_jump,
+            pi_rst  => s_flush,
             pi_data => s_signextension_out,
             po_data => s_se_reg_out
         );
+
+    -- Bypass Multiplexers (Operand Forwarding)
+    
+    byp_op1_mux: entity work.four_to_one_mux
+        generic map (dataWidth => WORD_WIDTH)
+        port map (
+            pi_1   => s_register_file_out1,
+            pi_2   => s_alu_out, -- ALU RESULT IN EX PHASE
+            pi_3   => s_byp_rs1_mem, -- LOADED DATA (LOAD INSTR) OR ALU RESULT (OTHERS) IN MEM PHASE
+            pi_4   => s_mem_wb_res_out, -- ALU RESULT IN WB PHASE
+            pi_sel => s_byp_rs1_sel,
+            po_res => s_byp_op1_mux_out
+        );
+
+    byp_op2_mux: entity work.four_to_one_mux
+        generic map (dataWidth => WORD_WIDTH)
+        port map (
+            pi_1   => s_register_file_out2,
+            pi_2   => s_alu_out, -- ALU RESULT IN EX PHASE
+            pi_3   => s_byp_rs2_mem, -- LOADED DATA (LOAD INSTR) OR ALU RESULT (OTHERS) IN MEM PHASE
+            pi_4   => s_mem_wb_res_out, -- ALU RESULT IN WB PHASE
+            pi_sel => s_byp_rs2_sel,
+            po_res => s_byp_op2_mux_out
+        );
+
+        -- bypass mux selection logic
+            s_rs1_AdrID <= s_instruction_register_out(19 downto 15); -- source register addresses from 
+            s_rs2_AdrID <= s_instruction_register_out(24 downto 20); -- instruction in ID PHASE
+
+            s_byp_rs1_MEM <= s_mem_out when (s_rs1_AdrID = s_d_reg2_out) and (s_cw_reg2_out.MEM_READ = '1') else s_ex_mem_res_out;
+            s_byp_rs2_MEM <= s_mem_out when (s_rs2_AdrID = s_d_reg2_out) and (s_cw_reg2_out.MEM_READ = '1') else s_ex_mem_res_out;
+
+
+            s_byp_rs1_sel <=    "01" when ((s_rs1_AdrID = s_d_reg1_out) and (s_rs1_AdrID /= "00000") and (s_stall = '0')) else
+                                "10" when ((s_rs1_AdrID = s_d_reg2_out) and (s_rs1_AdrID /= "00000") and (s_stall = '0')) else
+                                "11" when ((s_rs1_AdrID = s_d_reg3_out) and (s_rs1_AdrID /= "00000") and (s_stall = '0')) else
+                                "00";
+
+            s_byp_rs2_sel <=    "01" when ((s_rs2_AdrID = s_d_reg1_out) and (s_rs2_AdrID /= "00000") and (s_stall = '0')) else
+                                "10" when ((s_rs2_AdrID = s_d_reg2_out) and (s_rs2_AdrID /= "00000") and (s_stall = '0')) else
+                                "11" when ((s_rs2_AdrID = s_d_reg3_out) and (s_rs2_AdrID /= "00000") and (s_stall = '0')) else
+                                "00";
+
 
     -- ========================================================================
     -- EX STAGE (Execute)
@@ -328,6 +380,12 @@ begin
     -- Branch and Jump Control Logic
     s_b_sel   <= s_cw_reg1_out.IS_BRANCH and (s_alu_zero xor s_cw_reg1_out.CMP_RESULT);
     s_is_jump <= s_cw_reg2_out.PC_SEL;
+    s_flush   <= pi_rst or s_b_sel_mem or s_is_jump or s_stall;
+
+    -- Pipeline Stall Logic
+    s_stall <=  '1'  when (s_cw_reg2_out.MEM_READ = '1') and ((s_d_reg1_out /= "00000") 
+                        and ((s_d_reg1_out = s_rs1_AdrID) or (s_d_reg1_out = s_rs2_AdrID))) 
+                else '0';
 
     -- EX/MEM Pipeline Registers
     b_sel_mem: entity work.PipelineRegister
@@ -347,7 +405,7 @@ begin
             pi_data => s_branch_target,
             po_data => s_branch_target_mem
         );
-    -- holds alu result
+
     ex_mem_res: entity work.PipelineRegister
         generic map (g_register_width => WORD_WIDTH)
         port map (
@@ -356,16 +414,6 @@ begin
             pi_data => s_alu_out,
             po_data => s_ex_mem_res_out
         );
-    -- holds 2nd "alu-operand" of registerfile aka rs2
-    ex_mem_op2: entity work.PipelineRegister
-        generic map (g_register_width => WORD_WIDTH)
-        port map (
-            pi_clk  => pi_clk,
-            pi_rst  => pi_rst,
-            pi_data => s_ex_op_2_out,
-            po_data => s_ex_mem_op2_out
-    );
-
 
     cw_reg2: entity work.controlwordregister
         port map (
@@ -384,22 +432,30 @@ begin
             po_data => s_d_reg2_out
         );
 
+    s_reg_file_out2_mem: entity work.PipelineRegister
+        generic map (g_register_width => WORD_WIDTH)
+        port map (
+            pi_clk  => pi_clk,
+            pi_rst  => pi_rst,
+            pi_data => s_ex_op_2_out,
+            po_data => s_ex_op_2_mem
+        );
+
     -- ========================================================================
     -- MEM STAGE (Memory Access)
     -- ========================================================================
-
-    -- Memory Cache
-    memory_cache: entity work.data_memory
+    memory: entity work.data_memory
+        generic map (adr_width => ADR_WIDTH)
         port map (
-            pi_adr => s_ex_mem_res_out, -- alu result is the target memory address
-            pi_clk => not pi_clk,       -- uses inverted clock signal               
-            pi_rst => pi_rst,               
-            pi_ctrmem => s_cw_reg2_out.MEM_CTR, -- data length to read/write including extending behavior
-            pi_write => s_cw_reg2_out.MEM_WRITE, -- whether to write
-            pi_read => s_cw_reg2_out.MEM_READ, -- whether to read
-            pi_writedata => s_ex_mem_op2_out,   -- the data to write
-            po_readdata => s_memory_cache_out,  -- the read data
-            po_debugdatamemory => s_memory_cache_debug_out -- debug output
+            pi_clk             => not pi_clk,
+            pi_rst             => pi_rst,
+            pi_ctrmem          => s_cw_reg2_out.MEM_CTR,
+            pi_write           => s_cw_reg2_out.MEM_WRITE,
+            pi_read            => s_cw_reg2_out.MEM_READ,
+            pi_writedata       => s_ex_op_2_mem,
+            pi_adr             => s_ex_mem_res_out,
+            po_readdata        => s_mem_out,
+            po_debugdatamemory => po_debugdatamemory
         );
 
     -- MEM/WB Pipeline Registers
@@ -420,7 +476,15 @@ begin
             po_data => s_d_reg3_out
         );
 
-    
+    mem_out_wb: entity work.PipelineRegister
+        generic map (g_register_width => WORD_WIDTH)
+        port map (
+            pi_clk  => pi_clk,
+            pi_rst  => pi_rst,
+            pi_data => s_mem_out,
+            po_data => s_mem_out_wb
+        );
+
     -- ========================================================================
     -- WB STAGE (Write Back)
     -- ========================================================================
@@ -433,22 +497,13 @@ begin
             po_data => s_mem_wb_res_out
         );
 
-    mem_wb_memory_cache: entity work.PipelineRegister
-        generic map (g_register_width => WORD_WIDTH)
-        port map (
-            pi_clk  => pi_clk,
-            pi_rst  => pi_rst,
-            pi_data => s_memory_cache_out,
-            po_data => s_mem_wb_memory_cache_out
-        );
-
     wb_mux: entity work.four_to_one_mux
         generic map (dataWidth => WORD_WIDTH)
         port map (
-            pi_1   => s_mem_wb_res_out,     -- for arithmetic instructions etc.
-            pi_2   => s_se_reg3_out,        -- for U-type instructions
-            pi_3   => s_pc_reg4_out,        -- for JUMPs and BRANCHes
-            pi_4   => s_mem_wb_memory_cache_out,   -- for LOAD instructions
+            pi_1   => s_mem_wb_res_out,
+            pi_2   => s_se_reg3_out,
+            pi_3   => s_pc_reg4_out,
+            pi_4   => s_mem_out_wb,
             pi_sel => s_cw_reg3_out.WB_SEL,
             po_res => s_wb_mux_out
         );
@@ -509,7 +564,7 @@ begin
         generic map (g_register_width => WORD_WIDTH)
         port map (
             pi_clk  => pi_clk,
-            pi_rst  => pi_rst or s_b_sel_mem or s_is_jump,
+            pi_rst  => s_flush,
             pi_data => s_signextension_out,
             po_data => s_se_reg1_out
         );
