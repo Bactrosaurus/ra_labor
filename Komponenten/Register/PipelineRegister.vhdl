@@ -15,9 +15,9 @@ entity PipelineRegister is
     );
 
     port (
-        pi_data        : in  std_logic_vector(g_register_width - 1 downto 0) := (others => '0');
-        pi_clk, pi_rst : in  std_logic := '0';
-        po_data        : out std_logic_vector(g_register_width - 1 downto 0) := (others => '0')
+        pi_data                  : in  std_logic_vector(g_register_width - 1 downto 0) := (others => '0');
+        pi_clk, pi_rst, pi_stall : in  std_logic                                       := '0';
+        po_data                  : out std_logic_vector(g_register_width - 1 downto 0) := (others => '0')
     );
 end entity;
 
@@ -29,7 +29,7 @@ begin
     begin
         if pi_rst = '1' then
             s_reg <= (others => '0');
-        elsif rising_edge(pi_clk) then
+        elsif rising_edge(pi_clk) and pi_stall = '0' then
             s_reg <= pi_data;
         end if;
     end process;

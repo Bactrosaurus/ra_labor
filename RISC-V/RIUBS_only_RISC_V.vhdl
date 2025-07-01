@@ -208,7 +208,7 @@ begin
     s_opcode <= s_instruction_register_out(6 downto 0);
 
     -- Immediate Selection
-    s_signextension_out <= s_immediateImm_out when s_opcode = I_INS_OP or s_opcode = JALR_INS_OP else
+    s_signextension_out <= s_immediateImm_out when s_opcode = I_INS_OP or s_opcode = JALR_INS_OP or s_opcode = L_INS_OP else
                            s_unsignedImm_out  when s_opcode = LUI_INS_OP or s_opcode = AUIPC_INS_OP else
                            s_jumpImm_out      when s_opcode = JAL_INS_OP else
                            s_branchImm_out    when s_opcode = B_INS_OP else
