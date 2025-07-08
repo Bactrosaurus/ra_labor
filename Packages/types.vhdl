@@ -54,4 +54,6 @@ package types is
 
   type registermemory is array (0 to 2 ** REG_ADR_WIDTH - 1) of std_logic_vector(WORD_WIDTH - 1 downto 0); -- used in register file
 
+  type seg_patterns is array (0 to 5) of std_logic_vector(6 downto 0);
+
 end package types;

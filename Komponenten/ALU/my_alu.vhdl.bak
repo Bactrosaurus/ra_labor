@@ -58,6 +58,6 @@ begin
         s_sltu_res              when SLTU_ALU_OP,
                 (others => '0') when others;
 
-    po_zero <= '1' when po_aluOut = (po_aluOut'range => '0') else '0'; -- 1 when all bits are 0
+    po_zero <= not (or po_aluOut); -- 1 when all bits are 0
     po_carryOut <= s_carry_out;
 end architecture;

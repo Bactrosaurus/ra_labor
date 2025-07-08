@@ -22,9 +22,10 @@ entity riubs_bp_lu_only_RISC_V is
     port (
         pi_rst             : in  std_logic;
         pi_clk             : in  std_logic;
-        pi_instruction     : in  memory         := (others => (others => '0'));
-        po_registersOut    : out registermemory := (others => (others => '0'));
-        po_debugdatamemory : out memory         := (others => (others => '0'))
+        pi_instruction     : in  memory                                    := (others => (others => '0'));
+        po_registersOut    : out registermemory                            := (others => (others => '0'));
+        po_debugdatamemory : out memory                                    := (others => (others => '0'));
+        po_instrIF         : out std_logic_vector(WORD_WIDTH - 1 downto 0) := (others => '0')
     );
 end entity;
 
@@ -198,6 +199,8 @@ begin
             po_data  => s_instruction_register_out
         );
 
+    po_instrIF <= s_instruction_register_out;
+
     -- ========================================================================
     -- ID STAGE (Instruction Decode)
     -- ========================================================================
@@ -230,7 +233,8 @@ begin
                            s_unsignedImm_out  when s_instr_opcode = LUI_INS_OP or s_instr_opcode = AUIPC_INS_OP else
                            s_jumpImm_out      when s_instr_opcode = JAL_INS_OP else
                            s_branchImm_out    when s_instr_opcode = B_INS_OP else
-                           s_storeImm_out     when s_instr_opcode = S_INS_OP;
+                           s_storeImm_out     when s_instr_opcode = S_INS_OP else
+									(others => '0');
 
     -- Process for setting stall signal only once per cycle and implementing reset
     process (pi_clk, pi_rst)
@@ -239,7 +243,19 @@ begin
             s_stall <= '0';
         else
             if rising_edge(pi_clk) then
-                s_stall <= '1' when s_cw_reg1_out.MEM_READ = '1' and ((s_d_reg1_out /= "00000") and ((s_d_reg1_out = s_instr_t) or (s_d_reg1_out = s_instr_s))) else '0';
+                if s_cw_reg1_out.MEM_READ = '1' then
+                    if s_d_reg1_out /= "00000" then
+                        if s_d_reg1_out = s_instr_t or s_d_reg1_out = s_instr_s then
+                            s_stall <= '1';
+                        else
+                            s_stall <= '0';
+                        end if;
+                    else
+                        s_stall <= '0';
+                    end if;
+                else
+                    s_stall <= '0';
+                end if;
             end if;
         end if;
     end process;
