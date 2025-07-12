@@ -94,7 +94,7 @@ begin
     -- s_instructions(6) <= Asm2Std("ADD", 1, 2, 0); -- x1 = x2
     -- s_instructions(7) <= Asm2Std("ADD", 2, 3, 0); -- x2 = x3
     -- s_instructions(8) <= Asm2Std("ADDI", 4, 4, 1); -- x4 = x4 + 1
-    -- s_instructions(9) <= Asm2Std("BLT", 4, 6, -4); -- branch if i < n to instruction 5
+    -- s_instructions(9) <= Asm2Std("BLT", 4, 6, -8); -- branch if i < n to instruction 5
     -- end loop
 
     -- s_instructions(10) <= Asm2Std("ADD", 5, 2, 0); -- x5 = x2
