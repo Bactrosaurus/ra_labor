@@ -36,15 +36,14 @@ architecture behavior of instruction_cache is
     signal instructions : memory := (others => (others => '0'));
 
 begin
-    process (pi_clk, pi_rst, pi_instructionCache) is
+    process (pi_clk) is
     begin
-        if pi_rst = '1' then
-            instructions <= (others => (others => '0'));
-        elsif rising_edge(pi_clk) then
-
-            po_instruction <= instructions(to_integer(unsigned(pi_adr(adr_width - 1 downto 2))));
-        else
+        if rising_edge(pi_clk) then
             instructions <= pi_instructionCache;
+            if pi_rst = '1' then
+                instructions <= (others => (others => '0'));
+            end if;
+            po_instruction <= instructions(to_integer(unsigned(pi_adr(adr_width - 1 downto 2))));
         end if;
     end process;
 end architecture;

@@ -25,7 +25,7 @@ architecture behaviour of PipelineRegister is
     signal s_reg : std_logic_vector(g_register_width - 1 downto 0) := (others => '0');
 
 begin
-    process (pi_clk, pi_rst, pi_stall)
+    process (pi_clk, pi_rst)
     begin
         if pi_rst = '1' then
             s_reg <= (others => '0');
